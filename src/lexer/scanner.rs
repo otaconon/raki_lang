@@ -40,11 +40,20 @@ impl Scanner {
     match TokenType::from_char(c) {
       Some(token) => {
         if self.is_eof() {
-          return self.add_token(token, String::from(c));
+          self.add_token(token, String::from(c));
+          return;
         }
+
         let nc = self.source.as_bytes()[self.current] as char;
-        match TokenType::from_char(nc) {
-          Some(next_token)
+        let new_token = TokenType::make_2char(token, nc);
+
+        if new_token != token {
+          self.add_token(token, String::from(c));
+          return;
+        }
+        else {
+          self.add_token(new_token, format!("{}{}", c, nc).to_string());
+          return;
         }
       }
       None => self.errors.push(format!("Error: unexpected token: {}, at line: {}", c, self.line).to_string()),
