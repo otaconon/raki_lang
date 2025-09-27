@@ -38,6 +38,26 @@ impl Scanner {
   fn scan_token(&mut self) {
     let c = self.advance();
 
+    // Handle the case where c opens a string literal
+    if c == '"' {
+      while !self.is_eof() && self.peek() != '"' {
+        if self.peek() == '\n' {
+          self.line += 1;
+        }
+        self.advance();
+      }
+
+      if self.is_eof() {
+        self.errors.push(format!("Error: uneterminated string literal at line: {}", self.line).to_string());
+        return;
+      }
+
+      self.advance();
+      let literal = &self.source[self.start+1..self.current-1];
+      self.add_token(TokenType::String, String::from(literal));
+      return;
+    }
+
     // Match the first character
     match TokenType::from_char(c) {
       Some(token) => {
@@ -59,6 +79,7 @@ impl Scanner {
           }
           return;
         }
+        
 
         // Try matching second character to 2 char literal
         match token.get_2char_extension(nc) {
@@ -88,7 +109,7 @@ impl Scanner {
   }
 
   fn peek(&self) -> char {
-    self.source.as_bytes()[self.current-1] as char
+    self.source.as_bytes()[self.current] as char
   }
 
   fn check_next(&mut self, expected: char) -> bool {
@@ -113,7 +134,7 @@ mod test {
   use super::*;
 
   #[test]
-  fn test_single_char_token_type_scanning() {
+  fn scans_single_char_token_types() {
     let mut scanner = Scanner::new(String::from("()}+-"));
     let tokens = scanner.scan_tokens();
 
@@ -126,7 +147,7 @@ mod test {
   }
 
   #[test]
-  fn test_token_lexeme_scanning() {
+  fn scans_single_char_token_lexemes() {
     let mut scanner = Scanner::new(String::from("()}+-"));
     let tokens = scanner.scan_tokens();
 
@@ -139,7 +160,7 @@ mod test {
   }
 
   #[test]
-  fn test_unexpected_token_handling() {
+  fn handles_unexpected_tokens() {
     let mut scanner = Scanner::new(String::from("(@+%"));
     let tokens = scanner.scan_tokens();
     let errors = scanner.get_errors();
@@ -151,7 +172,7 @@ mod test {
   }
 
   #[test]
-  fn test_variable_char_token_type_scanning() {
+  fn scans_variable_length_token_types() {
     let mut scanner = Scanner::new(String::from("(==)=}!="));
     let tokens = scanner.scan_tokens();
     let errors = scanner.get_errors();
@@ -167,7 +188,7 @@ mod test {
   }
 
   #[test]
-  fn test_comment_scanning() {
+  fn scans_comments() {
     let mut scanner = Scanner::new(String::from("(//}{==ab"));
     let tokens = scanner.scan_tokens();
     let errors = scanner.get_errors();
@@ -179,7 +200,7 @@ mod test {
   }
 
   #[test]
-  fn test_ignoring_whitespaces() {
+  fn ignores_whitespaces() {
     let mut scanner = Scanner::new(String::from("(  != //abc"));
     let tokens = scanner.scan_tokens();
     let errors = scanner.get_errors();
@@ -188,6 +209,24 @@ mod test {
     assert_eq!(tokens[1].r#type, TokenType::BangEqual);
     assert_eq!(tokens[2].r#type, TokenType::Eof);
     assert_eq!(tokens.len(), 3);
+    assert_eq!(errors.len(), 0);
+  }
+
+  #[test]
+  fn scans_string_tokens() {
+    let mut scanner = Scanner::new(String::from("(\"abc\" !="));
+    let tokens = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
+
+    assert_eq!(tokens[1].r#type, TokenType::String);
+    assert_eq!(tokens[1].lexeme, "\"abc\"");
+    assert_eq!(tokens[1].literal, "abc");
+
+    assert_eq!(tokens[2].r#type, TokenType::BangEqual);
+    assert_eq!(tokens[3].r#type, TokenType::Eof);
+    assert_eq!(tokens.len(), 4);
     assert_eq!(errors.len(), 0);
   }
 }
