@@ -45,15 +45,12 @@ impl Scanner {
         }
 
         let nc = self.source.as_bytes()[self.current] as char;
-        let new_token = TokenType::make_2char(token, nc);
-
-        if new_token != token {
-          self.add_token(token, String::from(c));
-          return;
-        }
-        else {
-          self.add_token(new_token, format!("{}{}", c, nc).to_string());
-          return;
+        match token.get_2char_extension(nc) {
+          Some(extended_token) => {
+            self.add_token(extended_token, format!("{}{}", c, nc).to_string());
+            self.current += 1;
+          }
+          None => self.add_token(token, String::from(c)),
         }
       }
       None => self.errors.push(format!("Error: unexpected token: {}, at line: {}", c, self.line).to_string()),
@@ -96,7 +93,7 @@ mod test {
   use super::*;
 
   #[test]
-  fn test_token_type_scanning() {
+  fn test_single_char_token_type_scanning() {
     let mut scanner = Scanner::new(String::from("()}+-"));
     let tokens = scanner.scan_tokens();
 
@@ -131,5 +128,19 @@ mod test {
     assert_eq!(tokens[1].r#type, TokenType::Plus);
     assert_eq!(errors[0], String::from("Error: unexpected token: @, at line: 1"));
     assert_eq!(errors[1], String::from("Error: unexpected token: %, at line: 1"));
+  }
+
+  #[test]
+  fn test_variable_char_token_type_scanning() {
+    let mut scanner = Scanner::new(String::from("(==)=}!="));
+    let tokens = scanner.scan_tokens();
+
+    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
+    assert_eq!(tokens[1].r#type, TokenType::EqualEqual);
+    assert_eq!(tokens[2].r#type, TokenType::RightParen);
+    assert_eq!(tokens[3].r#type, TokenType::Equal);
+    assert_eq!(tokens[4].r#type, TokenType::RightBrace);
+    assert_eq!(tokens[5].r#type, TokenType::BangEqual);
+    assert_eq!(tokens[6].r#type, TokenType::Eof);
   }
 }

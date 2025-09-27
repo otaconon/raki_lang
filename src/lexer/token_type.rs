@@ -56,7 +56,6 @@ stringify_enum!(TokenType {
 use TokenType::*;
 
 impl TokenType {
-
   pub fn from_char(c: char) -> Option<TokenType> {
     match c {
       '(' => Some(LeftParen),
@@ -78,9 +77,17 @@ impl TokenType {
     }
   }
 
-  pub fn make_2char(token_type: TokenType, c: char) -> TokenType {
-    match c {
-      _ => token_type,
+  pub fn get_2char_extension(&self, c: char) -> Option<TokenType> {
+    if c != '=' {
+      return None;
+    }
+
+    match *self {
+      Bang => Some(BangEqual),
+      Equal => Some(EqualEqual),
+      Greater => Some(GreaterEqual),
+      Less => Some(LessEqual),
+      _ => None,
     }
   }
 }
