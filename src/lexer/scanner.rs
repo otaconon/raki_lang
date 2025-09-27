@@ -1,5 +1,5 @@
 use super::{Token, TokenType};
-use crate::raki_log::raki_log;
+use crate::{lexer::token_type, raki_log::raki_log};
 
 pub struct Scanner {
   source: String,
@@ -7,7 +7,7 @@ pub struct Scanner {
   errors: Vec<String>,
   start: usize,
   current: usize,
-  line: u32
+  line: u32,
 }
 
 // Only supports ASCII
@@ -23,7 +23,7 @@ impl Scanner {
     }
   }
 
-  pub fn scan_tokens(&mut self) -> Vec<Token>{
+  pub fn scan_tokens(&mut self) -> Vec<Token> {
     self.tokens = Vec::new();
 
     while !self.is_eof() {
@@ -31,81 +31,88 @@ impl Scanner {
       self.scan_token();
     }
 
-    self.tokens.push(Token{r#type: TokenType::Eof, lexeme: String::new(), literal: String::new(), line: self.line});
+    self.tokens.push(Token {
+      r#type: TokenType::Eof,
+      lexeme: String::new(),
+      literal: String::new(),
+      line: self.line,
+    });
     self.tokens.clone()
   }
 
   fn scan_token(&mut self) {
     let c = self.advance();
 
-    // Handle the case where c opens a string literal
-    if c == '"' {
-      while !self.is_eof() && self.peek() != '"' {
-        if self.peek() == '\n' {
-          self.line += 1;
-        }
-        self.advance();
-      }
-
-      if self.is_eof() {
-        self.errors.push(format!("Error: uneterminated string literal at line: {}", self.line).to_string());
+    // Scan one char
+    let token_type = match TokenType::from_char(c) {
+      Some(tty) => tty,
+      None => {
+        self.errors.push(format!("Error: unexpected token: {}, at line: {}", c, self.line).to_string());
         return;
       }
+    };
 
-      self.advance();
-      let literal = &self.source[self.start+1..self.current-1];
-      self.add_token(TokenType::String, String::from(literal));
+    match token_type {
+      TokenType::StringDelimiter => {
+        self.eat_string();
+        self.add_token(TokenType::String);
+        return;
+      }
+      TokenType::Ignore => return,
+      _ => {}
+    }
+
+    if self.is_eof() {
+      self.add_token(token_type);
       return;
     }
 
-    // Match the first character
-    match TokenType::from_char(c) {
-      Some(token) => {
-        if token == TokenType::Ignore {
-          return;
-        }
-
-        if self.is_eof() {
-          self.add_token(token, String::from(c));
-          return;
-        }
-
-        let nc = self.source.as_bytes()[self.current] as char;
-        
-        // Check if literal is a comment
-        if c == nc && nc == '/' {
-          while !self.is_eof() && self.peek() != '\n' {
-            self.advance();
-          }
-          return;
-        }
-        
-
-        // Try matching second character to 2 char literal
-        match token.get_2char_extension(nc) {
-          Some(extended_token) => {
-            self.add_token(extended_token, format!("{}{}", c, nc).to_string());
-            self.current += 1;
-          }
-          None => self.add_token(token, String::from(c)),
-        }
+    // Try scanning second char and try to extend the first one with it
+    let nc = self.source.as_bytes()[self.current] as char;
+    let extended_token = match token_type.get_extension(nc) {
+      Some(etty) => {
+        self.current += 1;
+        etty
       }
-      None => self.errors.push(format!("Error: unexpected token: {}, at line: {}", c, self.line).to_string()),
+      None => {
+        self.add_token(token_type);
+        return;
+      }
+    };
+
+    match extended_token {
+      TokenType::DoubleSlash => {
+        self.eat_comment();
+        return;
+      }
+      _ => {}
     }
+
+    self.add_token(extended_token);
   }
 
   fn is_eof(&self) -> bool {
     self.current >= self.source.len()
   }
 
-  fn add_token(&mut self, r#type: TokenType, literal: String) {
+  fn add_token(&mut self, r#type: TokenType) {
     let lexeme = &self.source[self.start..self.current];
-    self.tokens.push(Token{r#type, lexeme: String::from(lexeme), literal, line: self.line});
+    let literal: &str;
+    match r#type {
+      TokenType::String => literal = &self.source[self.start + 1..self.current - 1],
+      _ => literal = lexeme,
+    }
+    self.tokens.push(Token {
+      r#type,
+      lexeme: String::from(lexeme),
+      literal: String::from(literal),
+      line: self.line,
+    });
   }
 
   fn advance(&mut self) -> char {
     self.current += 1;
-    self.source.as_bytes()[self.current-1] as char
+    self.source.as_bytes()[self.current - 1] as char
   }
 
   fn peek(&self) -> char {
@@ -124,12 +131,34 @@ impl Scanner {
     true
   }
 
+  fn eat_string(&mut self) {
+    while !self.is_eof() && self.peek() != '"' {
+      if self.peek() == '\n' {
+        self.line += 1;
+      }
+      self.advance();
+    }
+
+    if self.is_eof() {
+      self.errors.push(format!("Error: uneterminated string literal at line: {}", self.line).to_string());
+      return;
+    }
+
+    self.advance();
+  }
+
+  fn eat_comment(&mut self) {
+    while !self.is_eof() && self.peek() != '\n' {
+      self.advance();
+    }
+  }
+
   pub fn get_errors(&self) -> Vec<String> {
     self.errors.clone()
   }
 }
 
-#[cfg(test)] 
+#[cfg(test)]
 mod test {
   use super::*;
 
@@ -201,7 +230,7 @@ mod test {
 
   #[test]
   fn ignores_whitespaces() {
-    let mut scanner = Scanner::new(String::from("(  != //abc"));
+    let mut scanner = Scanner::new(String::from("(  != "));
     let tokens = scanner.scan_tokens();
     let errors = scanner.get_errors();
 
@@ -228,5 +257,15 @@ mod test {
     assert_eq!(tokens[3].r#type, TokenType::Eof);
     assert_eq!(tokens.len(), 4);
     assert_eq!(errors.len(), 0);
+  }
+
+  #[test]
+  fn catches_unterminated_string_literals() {
+    let mut scanner = Scanner::new(String::from("(\"abc !="));
+    let _ = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(errors.len(), 1);
+    assert_eq!(errors[0], format!("Error: uneterminated string literal at line: {}", 1).to_string());
   }
 }

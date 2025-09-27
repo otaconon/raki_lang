@@ -42,6 +42,7 @@ stringify_enum!(TokenType {
   Equal, EqualEqual,
   Greater, GreaterEqual,
   Less, LessEqual,
+  DoubleSlash,
 
   // Literals.
   Identifier, String, Number,
@@ -50,7 +51,10 @@ stringify_enum!(TokenType {
   And, Class, Else, False, Fun, For, If, Nil, Or,
   Print, Return, Super, This, True, Var, While,
 
-  Eof, Ignore
+  Eof,
+
+  // Helpers
+  Ignore, StringDelimiter,
 });
 
 use TokenType::*;
@@ -73,21 +77,19 @@ impl TokenType {
       '=' => Some(Equal),
       '<' => Some(Less),
       '>' => Some(Greater),
+      '"' => Some(StringDelimiter),
       ' ' | '\r' | '\t' => Some(Ignore),
       _ => None,
     }
   }
 
-  pub fn get_2char_extension(&self, c: char) -> Option<TokenType> {
-    if c != '=' {
-      return None;
-    }
-
+  pub fn get_extension(&self, c: char) -> Option<TokenType> {
     match *self {
-      Bang => Some(BangEqual),
-      Equal => Some(EqualEqual),
-      Greater => Some(GreaterEqual),
-      Less => Some(LessEqual),
+      Bang => (c == '=').then_some(BangEqual),
+      Equal => (c == '=').then_some(EqualEqual),
+      Greater => (c == '=').then_some(GreaterEqual),
+      Less => (c == '=').then_some(LessEqual),
+      Slash => (c == '/').then_some(DoubleSlash),
       _ => None,
     }
   }
