@@ -1,5 +1,5 @@
 use super::{Token, TokenType};
-use crate::{lexer::token_type, raki_log::raki_log};
+use crate::{lexer::token_type, raki_log::raki_log, lexer::utils::*};
 
 pub struct Scanner {
   source: String,
@@ -58,6 +58,11 @@ impl Scanner {
         self.add_token(TokenType::String);
         return;
       }
+      TokenType::Digit => {
+        self.eat_number();
+        self.add_token(TokenType::Number);
+        return;
+      }
       TokenType::Ignore => return,
       _ => {}
     }
@@ -85,6 +90,7 @@ impl Scanner {
         self.eat_comment();
         return;
       }
+
       _ => {}
     }
 
@@ -131,6 +137,7 @@ impl Scanner {
     true
   }
 
+  // Moves current byte pointer to the right string delimiter
   fn eat_string(&mut self) {
     while !self.is_eof() && self.peek() != '"' {
       if self.peek() == '\n' {
@@ -147,6 +154,14 @@ impl Scanner {
     self.advance();
   }
 
+  // Moves current byte pointer to the last digit of the number
+  fn eat_number(&mut self) {
+    while !self.is_eof() && self.peek().is_digit(10) {
+      self.advance();
+    }
+  }
+
+  // Moves current byte pointer to the end of line
   fn eat_comment(&mut self) {
     while !self.is_eof() && self.peek() != '\n' {
       self.advance();
@@ -267,5 +282,23 @@ mod test {
 
     assert_eq!(errors.len(), 1);
     assert_eq!(errors[0], format!("Error: uneterminated string literal at line: {}", 1).to_string());
+  }
+
+  #[test]
+  fn scans_number_literals() {
+    let mut scanner = Scanner::new(String::from("(123 45"));
+    let tokens = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
+
+    assert_eq!(tokens[1].r#type, TokenType::Number);
+    assert_eq!(tokens[1].literal, String::from("123"));
+
+    assert_eq!(tokens[2].r#type, TokenType::Number);
+    assert_eq!(tokens[2].literal, String::from("45"));
+
+    assert_eq!(tokens[3].r#type, TokenType::Eof);
+    assert_eq!(errors.len(), 0);
   }
 }
