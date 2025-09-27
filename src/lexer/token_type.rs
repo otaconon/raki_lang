@@ -50,7 +50,7 @@ stringify_enum!(TokenType {
   And, Class, Else, False, Fun, For, If, Nil, Or,
   Print, Return, Super, This, True, Var, While,
 
-  Eof
+  Eof, Ignore
 });
 
 use TokenType::*;
@@ -73,6 +73,7 @@ impl TokenType {
       '=' => Some(Equal),
       '<' => Some(Less),
       '>' => Some(Greater),
+      ' ' | '\r' | '\t' => Some(Ignore),
       _ => None,
     }
   }
