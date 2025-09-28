@@ -54,7 +54,7 @@ stringify_enum!(TokenType {
   Eof,
 
   // Helpers
-  Ignore, StringDelimiter, Digit
+  Ignore
 });
 
 use TokenType::*;
@@ -77,8 +77,8 @@ impl TokenType {
       '=' => Some(Equal),
       '<' => Some(Less),
       '>' => Some(Greater),
-      '"' => Some(StringDelimiter),
-      c if c.is_digit(10) => Some(Digit),
+      '"' => Some(String),
+      c if c.is_digit(10) => Some(Number),
       c if c.is_alphabetic() => Some(Identifier),
       ' ' | '\r' | '\t' => Some(Ignore),
       _ => None,

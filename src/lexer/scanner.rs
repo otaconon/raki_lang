@@ -52,13 +52,14 @@ impl Scanner {
       }
     };
 
+    // Single char is enough to tell if its a string, number or beginning of an identifier
     match token_type {
-      TokenType::StringDelimiter => {
+      TokenType::String => {
         self.eat_string();
         self.add_token(TokenType::String);
         return;
       }
-      TokenType::Digit => {
+      TokenType::Number => {
         self.eat_number();
         self.add_token(TokenType::Number);
         return;
@@ -133,19 +134,17 @@ impl Scanner {
   }
 
   fn peek(&self) -> char {
-    self.source.as_bytes()[self.current] as char
+    match self.current < self.source.len() {
+      true => self.source.as_bytes()[self.current] as char,
+      false => '\0'
+    }
   }
 
-  fn check_next(&mut self, expected: char) -> bool {
-    if self.is_eof() {
-      return false;
+  fn peek_next(&self) -> char {
+    match self.current + 1 < self.source.len() {
+      true => self.source.as_bytes()[self.current+1] as char,
+      false => '\0'
     }
-    if self.source.as_bytes()[self.current] as char != expected {
-      return false;
-    }
-
-    self.current += 1;
-    true
   }
 
   // Moves current byte pointer to the right string delimiter
@@ -167,8 +166,11 @@ impl Scanner {
 
   // Moves current byte pointer to the last digit of the number
   fn eat_number(&mut self) {
-    while !self.is_eof() && self.peek().is_digit(10) {
+    while self.peek().is_digit(10) {
       self.advance();
+      if self.peek() == '.' && self.peek_next().is_digit(10) {
+        self.advance();
+      }
     }
   }
 
@@ -180,7 +182,7 @@ impl Scanner {
   }
 
   fn eat_identifier(&mut self) {
-    while !self.is_eof() && self.peek().is_alphabetic() {
+    while self.peek().is_alphabetic() {
       self.advance();
     }
   }
@@ -316,6 +318,42 @@ mod test {
     assert_eq!(tokens[2].literal, String::from("45"));
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
+    assert_eq!(errors.len(), 0);
+  }
+
+  #[test]
+  fn scans_decimal_number_literals() {
+    let mut scanner = Scanner::new(String::from("(123.45"));
+    let tokens = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
+
+    assert_eq!(tokens[1].r#type, TokenType::Number);
+    assert_eq!(tokens[1].literal, String::from("123.45"));
+
+    assert_eq!(tokens[2].r#type, TokenType::Eof);
+    assert_eq!(errors.len(), 0);
+  }
+
+  #[test]
+  fn ignores_bad_decimals() {
+    let mut scanner = Scanner::new(String::from("(123. .45"));
+    let tokens = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
+
+    assert_eq!(tokens[1].r#type, TokenType::Number);
+    assert_eq!(tokens[1].literal, String::from("123"));
+
+    assert_eq!(tokens[2].r#type, TokenType::Dot);
+    assert_eq!(tokens[3].r#type, TokenType::Dot);
+
+    assert_eq!(tokens[4].r#type, TokenType::Number);
+    assert_eq!(tokens[4].literal, String::from("45"));
+
+    assert_eq!(tokens[5].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);
   }
 
