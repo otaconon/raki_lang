@@ -63,6 +63,11 @@ impl Scanner {
         self.add_token(TokenType::Number);
         return;
       }
+      TokenType::Identifier => {
+        self.eat_identifier();
+        self.add_token(TokenType::Identifier);
+        return;
+      }
       TokenType::Ignore => return,
       _ => {}
     }
@@ -103,11 +108,17 @@ impl Scanner {
 
   fn add_token(&mut self, r#type: TokenType) {
     let lexeme = &self.source[self.start..self.current];
-    let literal: &str;
-    match r#type {
-      TokenType::String => literal = &self.source[self.start + 1..self.current - 1],
-      _ => literal = lexeme,
-    }
+
+    let r#type = match r#type.get_identifier(lexeme) {
+      Some(ty) => ty,
+      None => r#type
+    };
+
+    let literal = match r#type {
+      TokenType::String => &self.source[self.start + 1..self.current - 1],
+      _ => lexeme,
+    };
+
     self.tokens.push(Token {
       r#type,
       lexeme: String::from(lexeme),
@@ -164,6 +175,12 @@ impl Scanner {
   // Moves current byte pointer to the end of line
   fn eat_comment(&mut self) {
     while !self.is_eof() && self.peek() != '\n' {
+      self.advance();
+    }
+  }
+
+  fn eat_identifier(&mut self) {
+    while !self.is_eof() && self.peek().is_alphabetic() {
       self.advance();
     }
   }
@@ -297,6 +314,25 @@ mod test {
 
     assert_eq!(tokens[2].r#type, TokenType::Number);
     assert_eq!(tokens[2].literal, String::from("45"));
+
+    assert_eq!(tokens[3].r#type, TokenType::Eof);
+    assert_eq!(errors.len(), 0);
+  }
+
+  #[test]
+  fn scans_identifier_literals() {
+    let mut scanner = Scanner::new(String::from("and or for"));
+    let tokens = scanner.scan_tokens();
+    let errors = scanner.get_errors();
+
+    assert_eq!(tokens[0].r#type, TokenType::And);
+    assert_eq!(tokens[0].literal, "and");
+
+    assert_eq!(tokens[1].r#type, TokenType::Or);
+    assert_eq!(tokens[1].literal, "or");
+
+    assert_eq!(tokens[2].r#type, TokenType::For);
+    assert_eq!(tokens[2].literal, "for");
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);

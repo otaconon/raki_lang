@@ -79,6 +79,7 @@ impl TokenType {
       '>' => Some(Greater),
       '"' => Some(StringDelimiter),
       c if c.is_digit(10) => Some(Digit),
+      c if c.is_alphabetic() => Some(Identifier),
       ' ' | '\r' | '\t' => Some(Ignore),
       _ => None,
     }
@@ -91,6 +92,29 @@ impl TokenType {
       Greater => (c == '=').then_some(GreaterEqual),
       Less => (c == '=').then_some(LessEqual),
       Slash => (c == '/').then_some(DoubleSlash),
+      
+      _ => None,
+    }
+  }
+
+  pub fn get_identifier(&self, s: &str) -> Option<TokenType> {
+    match s {
+      "and"    => Some(And),
+      "class"  => Some(Class),
+      "else"   => Some(Else),
+      "false"  => Some(False),
+      "fun"    => Some(Fun),
+      "for"    => Some(For),
+      "if"     => Some(If),
+      "nil"    => Some(Nil),
+      "or"     => Some(Or),
+      "print"  => Some(Print),
+      "return" => Some(Return),
+      "super"  => Some(Super),
+      "this"   => Some(This),
+      "true"   => Some(True),
+      "var"    => Some(Var),
+      "while"  => Some(While),
       _ => None,
     }
   }
