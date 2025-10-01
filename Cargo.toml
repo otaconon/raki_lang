@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 fmt = "0.1.0"
 log = "0.4.28"
+paste = "1.0.15"

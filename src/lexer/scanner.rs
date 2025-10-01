@@ -80,7 +80,7 @@ impl Scanner {
 
     // Try scanning second char and try to extend the first one with it
     let nc = self.source.as_bytes()[self.current] as char;
-    let extended_token = match token_type.get_extension(nc) {
+    let extended_token_type = match token_type.get_extension(nc) {
       Some(etty) => {
         self.current += 1;
         etty
@@ -90,17 +90,17 @@ impl Scanner {
         return;
       }
     };
-
-    match extended_token {
+    
+    // If the extended_token_type requires additional handling perform it
+    match extended_token_type {
       TokenType::DoubleSlash => {
         self.eat_comment();
         return;
       }
-
       _ => {}
     }
 
-    self.add_token(extended_token);
+    self.add_token(extended_token_type);
   }
 
   fn is_eof(&self) -> bool {

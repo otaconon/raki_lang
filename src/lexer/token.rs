@@ -1,7 +1,7 @@
 use super::TokenType;
 
-#[derive(Clone)]
 
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Token {
   pub r#type: TokenType,
   pub lexeme: String,
