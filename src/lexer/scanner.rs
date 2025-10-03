@@ -1,4 +1,4 @@
-use super::{Token, TokenType};
+use super::{Token, TokenType, LiteralType};
 use crate::{lexer::token_type, raki_log::raki_log, lexer::utils::*};
 
 pub struct Scanner {
@@ -34,7 +34,7 @@ impl Scanner {
     self.tokens.push(Token {
       r#type: TokenType::Eof,
       lexeme: String::new(),
-      literal: String::new(),
+      literal: LiteralType::String(String::new()),
       line: self.line,
     });
     self.tokens.clone()
@@ -123,7 +123,7 @@ impl Scanner {
     self.tokens.push(Token {
       r#type,
       lexeme: String::from(lexeme),
-      literal: String::from(literal),
+      literal: LiteralType::String(String::from(literal)),
       line: self.line,
     });
   }
@@ -285,7 +285,7 @@ mod test {
 
     assert_eq!(tokens[1].r#type, TokenType::String);
     assert_eq!(tokens[1].lexeme, "\"abc\"");
-    assert_eq!(tokens[1].literal, "abc");
+    assert_eq!(tokens[1].literal.to_string(), "abc");
 
     assert_eq!(tokens[2].r#type, TokenType::BangEqual);
     assert_eq!(tokens[3].r#type, TokenType::Eof);
@@ -312,10 +312,10 @@ mod test {
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
     assert_eq!(tokens[1].r#type, TokenType::Number);
-    assert_eq!(tokens[1].literal, String::from("123"));
+    assert_eq!(tokens[1].literal.to_string(), String::from("123"));
 
     assert_eq!(tokens[2].r#type, TokenType::Number);
-    assert_eq!(tokens[2].literal, String::from("45"));
+    assert_eq!(tokens[2].literal.to_string(), String::from("45"));
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);
@@ -330,7 +330,7 @@ mod test {
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
     assert_eq!(tokens[1].r#type, TokenType::Number);
-    assert_eq!(tokens[1].literal, String::from("123.45"));
+    assert_eq!(tokens[1].literal.to_string(), String::from("123.45"));
 
     assert_eq!(tokens[2].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);
@@ -345,13 +345,13 @@ mod test {
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
     assert_eq!(tokens[1].r#type, TokenType::Number);
-    assert_eq!(tokens[1].literal, String::from("123"));
+    assert_eq!(tokens[1].literal.to_string(), String::from("123"));
 
     assert_eq!(tokens[2].r#type, TokenType::Dot);
     assert_eq!(tokens[3].r#type, TokenType::Dot);
 
     assert_eq!(tokens[4].r#type, TokenType::Number);
-    assert_eq!(tokens[4].literal, String::from("45"));
+    assert_eq!(tokens[4].literal.to_string(), String::from("45"));
 
     assert_eq!(tokens[5].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);
@@ -364,13 +364,13 @@ mod test {
     let errors = scanner.get_errors();
 
     assert_eq!(tokens[0].r#type, TokenType::And);
-    assert_eq!(tokens[0].literal, "and");
+    assert_eq!(tokens[0].literal.to_string(), "and");
 
     assert_eq!(tokens[1].r#type, TokenType::Or);
-    assert_eq!(tokens[1].literal, "or");
+    assert_eq!(tokens[1].literal.to_string(), "or");
 
     assert_eq!(tokens[2].r#type, TokenType::For);
-    assert_eq!(tokens[2].literal, "for");
+    assert_eq!(tokens[2].literal.to_string(), "for");
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
     assert_eq!(errors.len(), 0);

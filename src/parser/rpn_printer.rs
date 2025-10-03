@@ -17,7 +17,7 @@ impl Visitor<String> for RpnPrinter {
         res.push("group".to_string());
       }
       Expr::Literal { value } => {
-        res.push(value.as_deref().unwrap_or("nil").to_string());
+        res.push(value.to_string());
       }
       Expr::Unary { right, operator } => {
         res.push(self.visit_expr(right));
@@ -31,7 +31,7 @@ impl Visitor<String> for RpnPrinter {
 
 #[cfg(test)]
 mod test {
-  use crate::lexer::TokenType;
+  use crate::lexer::{LiteralType, TokenType};
 
 use super::*;
 
@@ -39,11 +39,11 @@ use super::*;
   fn printer_prints() {
     let expression = Expr::Binary { 
       left: Box::new(Expr::Unary { 
-        right: Box::new(Expr::Literal { value: Some("123".to_string()) }),
-        operator: Token { r#type: TokenType::Minus, lexeme: "-".to_string(), literal: String::new(), line: 0 }
+        right: Box::new(Expr::Literal { value: LiteralType::I32(123) }),
+        operator: Token { r#type: TokenType::Minus, lexeme: "-".to_string(), literal: LiteralType::String(String::new()), line: 0 }
       }),
-      right: Box::new(Expr::Grouping { expr: Box::new(Expr::Literal { value: Some("45.67".to_string()) }) }), 
-      operator: (Token { r#type: TokenType::Star, lexeme: "*".to_string(), literal: String::new(), line: 0 }) 
+      right: Box::new(Expr::Grouping { expr: Box::new(Expr::Literal { value: LiteralType::F32(45.67) }) }), 
+      operator: (Token { r#type: TokenType::Star, lexeme: "*".to_string(), literal: LiteralType::String(String::new()), line: 0 }) 
     };
 
     let printer = RpnPrinter{};
