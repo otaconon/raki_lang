@@ -9,19 +9,13 @@ enum Expr {
 }
 
 trait ExprVisitor<R> {
-  fn visit_expr(&mut self, expr: &mut Expr) -> R;
-}
-
-impl Expr {
-  fn accept<R>(&mut self, visitor: &mut dyn ExprVisitor<R>) -> R {
-    visitor.visit_expr(self)
-  }
+  fn visit_expr(&self, expr: &Expr) -> R;
 }
 
 pub struct AstPrinter;
 
 impl ExprVisitor<String> for AstPrinter {
-  fn visit_expr(&mut self, e: &mut Expr) -> String {
+  fn visit_expr(&self, e: &Expr) -> String {
     match e {
       Expr::Binary { left, right, operator } => return self.parenthesize(&operator.lexeme, [left, right]),
       Expr::Grouping { expr } => return self.parenthesize("group ", [expr]),
@@ -32,13 +26,13 @@ impl ExprVisitor<String> for AstPrinter {
 }
 
 impl AstPrinter {
-  fn parenthesize<'a, I>(&mut self, name: &str, exprs: I) -> String
+  fn parenthesize<'a, I>(&self, name: &str, exprs: I) -> String
   where
-    I: IntoIterator<Item = &'a mut Box<Expr>>,
+    I: IntoIterator<Item = &'a Box<Expr>>,
   {
     let mut res = format!("({}", name);
     for expr in exprs.into_iter() {
-      res.push_str(&expr.accept(self));
+      res.push_str(&self.visit_expr(expr));
     }
 
     res.push(')');
