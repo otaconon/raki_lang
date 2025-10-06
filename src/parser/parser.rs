@@ -1,8 +1,8 @@
 use super::Expr;
-use crate::lexer::LiteralType;
-use crate::raki_log::{RakiError, raki_log};
 use crate::Token;
 use crate::TokenType;
+use crate::lexer::LiteralType;
+use crate::raki_log::{RakiError, raki_log};
 
 /*
 expression     → equality ;
@@ -44,13 +44,10 @@ impl Parser {
     let mut expr: Expr = self.comparison()?;
 
     while let TokenType::BangEqual | TokenType::EqualEqual = self.peek().r#type {
-        let operator = self.previous().clone();
-        let right = self.comparison()?;
-        expr = Expr::Binary {
-            left: Box::new(expr),
-            right: Box::new(right),
-            operator,
-        };
+      self.advance();
+      let operator = self.previous().clone();
+      let right = self.comparison()?;
+      expr = Expr::Binary { left: Box::new(expr), right: Box::new(right), operator };
     }
 
     Ok(expr)
@@ -60,13 +57,10 @@ impl Parser {
     let mut expr: Expr = self.term()?;
 
     while let TokenType::Greater | TokenType::GreaterEqual | TokenType::Less | TokenType::LessEqual = self.peek().r#type {
-        let operator = self.previous().clone();
-        let right = self.term()?;
-        expr = Expr::Binary {
-            left: Box::new(expr),
-            right: Box::new(right),
-            operator,
-        };
+      self.advance();
+      let operator = self.previous().clone();
+      let right = self.term()?;
+      expr = Expr::Binary { left: Box::new(expr), right: Box::new(right), operator };
     }
 
     Ok(expr)
@@ -76,13 +70,10 @@ impl Parser {
     let mut expr: Expr = self.factor()?;
 
     while let TokenType::Plus | TokenType::Minus = self.peek().r#type {
-        let operator = self.previous().clone();
-        let right = self.factor()?;
-        expr = Expr::Binary {
-            left: Box::new(expr),
-            right: Box::new(right),
-            operator,
-        };
+      self.advance();
+      let operator = self.previous().clone();
+      let right = self.factor()?;
+      expr = Expr::Binary { left: Box::new(expr), right: Box::new(right), operator };
     }
 
     Ok(expr)
@@ -92,13 +83,10 @@ impl Parser {
     let mut expr: Expr = self.unary()?;
 
     while let TokenType::Plus | TokenType::Minus = self.peek().r#type {
-        let operator = self.previous().clone();
-        let right = self.unary()?;
-        expr = Expr::Binary {
-            left: Box::new(expr),
-            right: Box::new(right),
-            operator
-        };
+      self.advance();
+      let operator = self.previous().clone();
+      let right = self.unary()?;
+      expr = Expr::Binary { left: Box::new(expr), right: Box::new(right), operator };
     }
 
     Ok(expr)
@@ -106,34 +94,33 @@ impl Parser {
 
   fn unary(&mut self) -> Result<Expr, RakiError> {
     if let TokenType::Bang | TokenType::Minus = self.peek().r#type {
-        let operator = self.previous().clone();
-        let right = self.unary()?;
-        return Ok(Expr::Unary {
-            right: Box::new(right),
-            operator,
-        });
+      self.advance();
+      let operator = self.previous().clone();
+      let right = self.unary()?;
+      return Ok(Expr::Unary { right: Box::new(right), operator });
     }
 
     self.primary()
   }
 
   fn primary(&mut self) -> Result<Expr, RakiError> {
-    match self.peek().r#type {
+    self.advance();
+    match self.previous().r#type {
       TokenType::False => return Ok(Expr::Literal { value: LiteralType::Bool(false) }),
       TokenType::True => return Ok(Expr::Literal { value: LiteralType::Bool(true) }),
       TokenType::Nil => return Ok(Expr::Literal { value: LiteralType::None }),
-      TokenType::Number | TokenType::String => return Ok(Expr::Literal {value: self.previous().literal.clone()}),
+      TokenType::Number | TokenType::String => return Ok(Expr::Literal { value: self.previous().literal.clone() }),
       TokenType::LeftParen => {
         let expr: Expr = self.expression()?;
         let res = self.consume(TokenType::RightParen, "Expect ')' after expression.");
         if res.is_err() {
-          return Ok(Expr::Literal { value: LiteralType::None })
+          return Ok(Expr::Literal { value: LiteralType::None });
         }
-        return Ok(Expr::Grouping { expr: Box::new(expr) })
+        return Ok(Expr::Grouping { expr: Box::new(expr) });
       }
       _ => {
         self.error(self.peek(), "Expect expression.");
-        return Ok(Expr::Literal { value: LiteralType::None })
+        return Ok(Expr::Literal { value: LiteralType::None });
       }
     }
   }
@@ -147,11 +134,11 @@ impl Parser {
       use TokenType::*;
       match self.peek().r#type {
         Class | Fun | Var | For | If | While | Print | Return => return,
-        _ => self.advance()
+        _ => self.advance(),
       };
     }
   }
-  
+
   fn is_eof(&self) -> bool {
     self.peek().r#type == TokenType::Eof
   }
@@ -166,7 +153,7 @@ impl Parser {
   }
 
   fn previous(&self) -> &Token {
-    &self.tokens[self.current-1]
+    &self.tokens[self.current - 1]
   }
 
   fn consume(&mut self, tty: TokenType, msg: &str) -> Result<&Token, RakiError> {
@@ -180,8 +167,20 @@ impl Parser {
   fn error(&self, token: &Token, msg: &str) -> RakiError {
     let err: RakiError;
     match token.r#type {
-      TokenType::Eof => err = RakiError::Syntax { line: token.line, at: " at end".to_string(), message: msg.to_string() },
-      _ => err = RakiError::Syntax { line: token.line, at: format!(" at {}", token.lexeme), message: msg.to_string() },
+      TokenType::Eof => {
+        err = RakiError::Syntax {
+          line: token.line,
+          at: " at end".to_string(),
+          message: msg.to_string(),
+        }
+      }
+      _ => {
+        err = RakiError::Syntax {
+          line: token.line,
+          at: format!(" at {}", token.lexeme),
+          message: msg.to_string(),
+        }
+      }
     }
 
     raki_log(&err);
@@ -191,17 +190,22 @@ impl Parser {
 
 #[cfg(test)]
 mod test {
-    use crate::{lexer::Scanner, parser::{RpnPrinter, Visitor}};
-    use super::*;
+  use super::*;
+  use crate::{
+    lexer::Scanner,
+    parser::{AstPrinter, Visitor},
+  };
 
   #[test]
   fn parses() {
-    let mut scanner = Scanner::new("".to_string());
+    let mut scanner = Scanner::new("123 - 45".to_string());
     let mut parser = Parser::new(scanner.scan_tokens());
-    let ast_printer = RpnPrinter{};
+    let ast_printer = AstPrinter {};
     match parser.parse() {
-      Some(expr) => println!("{}", ast_printer.visit_expr(&expr)),
-      None => {}
+      Some(expr) => assert_eq!(ast_printer.visit_expr(&expr), "( - 123 45 )"),
+      None => {
+        assert!(false)
+      }
     }
   }
 }

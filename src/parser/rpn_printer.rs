@@ -2,30 +2,32 @@ use super::Expr;
 use super::Visitor;
 use crate::Token;
 
-pub struct RpnPrinter;
-impl Visitor<String> for RpnPrinter {
+pub struct AstPrinter;
+
+impl Visitor<String> for AstPrinter {
   fn visit_expr(&self, e: &Expr) -> String {
-    let mut res: Vec<String> = Vec::new();
     match e {
-      Expr::Binary { left, right, operator } => {
-        res.push(self.visit_expr(left));
-        res.push(self.visit_expr(right));
-        res.push(operator.lexeme.to_string());
-      }
-      Expr::Grouping { expr } => {
-        res.push(self.visit_expr(expr));
-        res.push("group".to_string());
-      }
-      Expr::Literal { value } => {
-        res.push(value.to_string());
-      }
-      Expr::Unary { right, operator } => {
-        res.push(self.visit_expr(right));
-        res.push(operator.lexeme.to_string());
-      }
+      Expr::Binary { left, right, operator } => return self.parenthesize(&operator.lexeme, [left, right]),
+      Expr::Grouping { expr } => return self.parenthesize("group ", [expr]),
+      Expr::Literal { value } => return value.to_string(),
+      Expr::Unary { right, operator } => return self.parenthesize(&operator.lexeme, [right])
+    }
+  }
+}
+
+impl AstPrinter {
+  fn parenthesize<'a, I>(&self, name: &str, exprs: I) -> String
+  where
+    I: IntoIterator<Item = &'a Box<Expr>>,
+  {
+    let mut res = format!("( {} ", name);
+    for expr in exprs.into_iter() {
+      let e= self.visit_expr(expr) + " ";
+      res.push_str(&e);
     }
 
-    res.join(" ")
+    res.push(')');
+    res
   }
 }
 
@@ -46,7 +48,7 @@ use super::*;
       operator: (Token { r#type: TokenType::Star, lexeme: "*".to_string(), literal: LiteralType::String(String::new()), line: 0 }) 
     };
 
-    let printer = RpnPrinter{};
-    assert_eq!(printer.visit_expr(&expression), "123 - 45.67 group *".to_string());
+    let printer = AstPrinter{};
+    assert_eq!(printer.visit_expr(&expression), "( * ( - 123 ) ( group  45.67 ) )".to_string());
   }
 }
