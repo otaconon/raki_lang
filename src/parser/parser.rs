@@ -14,26 +14,36 @@ unary          → ( "!" | "-" ) unary
                | primary ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
+operator       → expression ( (",") expression )* ;
 */
 
 pub struct Parser {
   tokens: Vec<Token>,
   current: usize,
+  final_expr: Option<Expr>,
 }
 
 impl Parser {
   pub fn new(tokens: Vec<Token>) -> Parser {
-    Parser { tokens, current: 0 }
+    Parser { tokens, current: 0, final_expr: None }
   }
 
   pub fn parse(&mut self) -> Option<Expr> {
-    match self.expression() {
-      Ok(expr) => Some(expr),
-      Err(_) => {
-        self.synchronize();
-        None
+    loop {
+      match self.expression() {
+        Ok(expr) => self.final_expr = Some(expr),
+        Err(_) => {
+          self.synchronize();
+        }
       }
+
+      match self.is_eof() {
+        true => break,
+        false => self.advance()
+      };
     }
+
+    self.final_expr.clone()
   }
 
   fn expression(&mut self) -> Result<Expr, RakiError> {
@@ -104,7 +114,10 @@ impl Parser {
   }
 
   fn primary(&mut self) -> Result<Expr, RakiError> {
-    self.advance();
+    if matches!(self.peek().r#type, TokenType::False | TokenType::True | TokenType::Nil | TokenType::Number | TokenType::LeftParen) {
+      self.advance();
+    }
+
     match self.previous().r#type {
       TokenType::False => return Ok(Expr::Literal { value: LiteralType::Bool(false) }),
       TokenType::True => return Ok(Expr::Literal { value: LiteralType::Bool(true) }),
@@ -118,11 +131,26 @@ impl Parser {
         }
         return Ok(Expr::Grouping { expr: Box::new(expr) });
       }
-      _ => {
-        self.error(self.peek(), "Expect expression.");
-        return Ok(Expr::Literal { value: LiteralType::None });
+      _ => {}
+    }
+
+    self.comma()
+  }
+
+  fn comma(&mut self) -> Result<Expr, RakiError> {
+    if self.peek().r#type != TokenType::Comma {
+      return Err(self.error(self.peek(), "Expect expression."));
+    }
+
+    let mut expr: Expr;
+    loop {
+      expr = self.expression()?;
+      if self.peek().r#type != TokenType::Comma {
+        break;
       }
     }
+
+    Ok(expr)
   }
 
   fn synchronize(&mut self) {
@@ -203,6 +231,19 @@ mod test {
     let ast_printer = AstPrinter {};
     match parser.parse() {
       Some(expr) => assert_eq!(ast_printer.visit_expr(&expr), "( - 123 45 )"),
+      None => {
+        assert!(false)
+      }
+    }
+  }
+
+  #[test]
+  fn handles_comma_operator() {
+    let mut scanner = Scanner::new("123 - 45, 48 + 25, 82 + 102".to_string());
+    let mut parser = Parser::new(scanner.scan_tokens());
+    let ast_printer = AstPrinter {};
+    match parser.parse() {
+      Some(expr) => assert_eq!(ast_printer.visit_expr(&expr), "( + 82 102 )"),
       None => {
         assert!(false)
       }
