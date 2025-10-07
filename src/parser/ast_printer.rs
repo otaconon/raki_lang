@@ -42,10 +42,10 @@ use super::*;
   fn printer_prints() {
     let expression = Expr::Binary { 
       left: Box::new(Expr::Unary { 
-        right: Box::new(Expr::Literal { value: LiteralType::I32(123) }),
+        right: Box::new(Expr::Literal { value: LiteralType::I64(123.0) }),
         operator: Token { r#type: TokenType::Minus, lexeme: "-".to_string(), literal: LiteralType::String(String::new()), line: 0 }
       }),
-      right: Box::new(Expr::Grouping { expr: Box::new(Expr::Literal { value: LiteralType::F32(45.67) }) }), 
+      right: Box::new(Expr::Grouping { expr: Box::new(Expr::Literal { value: LiteralType::F64(45.67) }) }), 
       operator: (Token { r#type: TokenType::Star, lexeme: "*".to_string(), literal: LiteralType::String(String::new()), line: 0 }) 
     };
 

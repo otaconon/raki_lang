@@ -2,7 +2,7 @@ use super::TokenType;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LiteralType {
-  String(String), I32(i32), F32(f32), Bool(bool), None
+  String(String), I64(f64), F64(f64), Bool(bool), None
 }
 
 impl ::core::fmt::Display for LiteralType {
@@ -10,8 +10,8 @@ impl ::core::fmt::Display for LiteralType {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> ::core::fmt::Result {
     match self {
       LiteralType::String(val) => write!(f, "{}", val),
-      LiteralType::I32(val) => write!(f, "{}", val),
-      LiteralType::F32(val) => write!(f, "{}", val),
+      LiteralType::I64(val) => write!(f, "{}", val),
+      LiteralType::F64(val) => write!(f, "{}", val),
       LiteralType::Bool(val) => write!(f, "{}", val),
       LiteralType::None => write!(f, "nil")
     }

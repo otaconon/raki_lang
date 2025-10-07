@@ -1,6 +1,7 @@
 mod raki_log;
 mod lexer;
 mod parser;
+mod interpreter;
 
 use lexer::{Token, TokenType};
 
