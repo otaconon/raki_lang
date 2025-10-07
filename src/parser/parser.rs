@@ -5,7 +5,10 @@ use crate::lexer::LiteralType;
 use crate::raki_log::{RakiError, raki_log};
 
 /*
-expression     → equality ;
+expression     → comma ;
+comma          → comma "," ternary
+               | ternary ;
+ternary        → equality ( "?" expression ":" ternary )? ;
 equality       → comparison ( ( "!=" | "==" ) comparison )* ;
 comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term           → factor ( ( "-" | "+" ) factor )* ;
@@ -14,28 +17,27 @@ unary          → ( "!" | "-" ) unary
                | primary ;
 primary        → NUMBER | STRING | "true" | "false" | "nil"
                | "(" expression ")" ;
-operator       → expression ( (",") expression )* ;
 */
 
 pub struct Parser {
   tokens: Vec<Token>,
   current: usize,
-  final_expr: Option<Expr>,
+  exprs: Vec<Expr>,
 }
 
 impl Parser {
   pub fn new(tokens: Vec<Token>) -> Parser {
-    Parser { tokens, current: 0, final_expr: None }
+    Parser { tokens, current: 0, exprs: Vec::new() }
   }
 
-  pub fn parse(&mut self) -> Option<Expr> {
+  pub fn parse(&mut self) -> Vec<Expr> {
     loop {
       match self.expression() {
-        Ok(expr) => self.final_expr = Some(expr),
+        Ok(expr) => self.exprs.push(expr),
         Err(_) => {
           self.synchronize();
         }
-      }
+      };
 
       match self.is_eof() {
         true => break,
@@ -43,11 +45,40 @@ impl Parser {
       };
     }
 
-    self.final_expr.clone()
+    self.exprs.clone()
   }
 
   fn expression(&mut self) -> Result<Expr, RakiError> {
-    return self.equality();
+    return self.comma();
+  }
+
+  fn comma(&mut self) -> Result<Expr, RakiError> {
+    let mut expr = self.ternary()?;
+    
+    if let TokenType::Comma = self.peek().r#type {
+      self.advance();
+      expr = self.expression()?;
+    }
+
+    Ok(expr)
+  }
+
+  fn ternary(&mut self) -> Result<Expr, RakiError> {
+    let condition = self.equality()?;
+
+    if let TokenType::QuestionMark = self.peek().r#type {
+      self.advance();
+      let left = Box::new(self.expression()?);
+      match self.consume(TokenType::DoubleDot, "Expect ':' after ternary operator") {
+        Ok(_) => {
+          let right = Box::new(self.ternary()?);
+          return Ok(Expr::Ternary{condition: Box::new(condition), left, right})
+        }
+        Err(err) => return Err(err)
+      }
+    }
+
+    Ok(condition)
   }
 
   fn equality(&mut self) -> Result<Expr, RakiError> {
@@ -125,32 +156,13 @@ impl Parser {
       TokenType::Number | TokenType::String => return Ok(Expr::Literal { value: self.previous().literal.clone() }),
       TokenType::LeftParen => {
         let expr: Expr = self.expression()?;
-        let res = self.consume(TokenType::RightParen, "Expect ')' after expression.");
-        if res.is_err() {
-          return Ok(Expr::Literal { value: LiteralType::None });
+        match self.consume(TokenType::RightParen, "Expect ')' after expression.") {
+          Ok(_) => return Ok(Expr::Grouping { expr: Box::new(expr) }),
+          Err(err) => return Err(err)
         }
-        return Ok(Expr::Grouping { expr: Box::new(expr) });
       }
-      _ => {}
+      _ => return Err(self.error(self.peek(), "Expected expression."))
     }
-
-    self.comma()
-  }
-
-  fn comma(&mut self) -> Result<Expr, RakiError> {
-    if self.peek().r#type != TokenType::Comma {
-      return Err(self.error(self.peek(), "Expect expression."));
-    }
-
-    let mut expr: Expr;
-    loop {
-      expr = self.expression()?;
-      if self.peek().r#type != TokenType::Comma {
-        break;
-      }
-    }
-
-    Ok(expr)
   }
 
   fn synchronize(&mut self) {
@@ -225,16 +237,21 @@ mod test {
   };
 
   #[test]
-  fn parses() {
-    let mut scanner = Scanner::new("123 - 45".to_string());
+  fn handles_equality_operator() {
+    let mut scanner = Scanner::new("1 == 10".to_string());
     let mut parser = Parser::new(scanner.scan_tokens());
     let ast_printer = AstPrinter {};
-    match parser.parse() {
-      Some(expr) => assert_eq!(ast_printer.visit_expr(&expr), "( - 123 45 )"),
-      None => {
-        assert!(false)
-      }
-    }
+    let exprs = parser.parse();
+    assert_eq!(ast_printer.visit_expr(&exprs[0]), "( == 1 10 )");
+  }
+
+  #[test]
+  fn handles_comparison_operator() {
+    let mut scanner = Scanner::new("1 > 10".to_string());
+    let mut parser = Parser::new(scanner.scan_tokens());
+    let ast_printer = AstPrinter {};
+    let exprs = parser.parse();
+    assert_eq!(ast_printer.visit_expr(&exprs[0]), "( > 1 10 )");
   }
 
   #[test]
@@ -242,11 +259,18 @@ mod test {
     let mut scanner = Scanner::new("123 - 45, 48 + 25, 82 + 102".to_string());
     let mut parser = Parser::new(scanner.scan_tokens());
     let ast_printer = AstPrinter {};
-    match parser.parse() {
-      Some(expr) => assert_eq!(ast_printer.visit_expr(&expr), "( + 82 102 )"),
-      None => {
-        assert!(false)
-      }
-    }
+    let exprs = parser.parse();
+    assert_eq!(ast_printer.visit_expr(&exprs[0]), "( + 82 102 )");
   }
+
+  /*
+  #[test]
+  fn handles_ternary_operator() {
+    let mut scanner = Scanner::new("1 > 2 ? 3 : 4".to_string());
+    let mut parser = Parser::new(scanner.scan_tokens());
+    let ast_printer = AstPrinter {};
+    let exprs = parser.parse();
+    assert_eq!(ast_printer.visit_expr(&exprs[0]), "( ternary ( > 1 2 ) 3 4 )");
+  }
+  */
 }

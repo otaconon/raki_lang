@@ -3,7 +3,7 @@ use super::utils;
 stringify_enum!(TokenType {
   // Single character tokens
   LeftParen, RightParen, LeftBrace, RightBrace,
-  Comma, Dot, Minus, Plus, Semicolon, Slash, Star,
+  Comma, Dot, Minus, Plus, Semicolon, Slash, Star, QuestionMark, DoubleDot,
 
   // One or two characters tokens
   Bang, BangEqual,
@@ -46,6 +46,8 @@ impl TokenType {
       '<' => Some(Less),
       '>' => Some(Greater),
       '"' => Some(String),
+      '?' => Some(QuestionMark),
+      ':' => Some(DoubleDot),
       c if c.is_digit(10) => Some(Number),
       c if c.is_alphabetic() => Some(Identifier),
       ' ' | '\r' | '\t' => Some(Ignore),

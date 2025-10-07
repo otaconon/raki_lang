@@ -10,7 +10,8 @@ impl Visitor<String> for AstPrinter {
       Expr::Binary { left, right, operator } => return self.parenthesize(&operator.lexeme, [left, right]),
       Expr::Grouping { expr } => return self.parenthesize("group ", [expr]),
       Expr::Literal { value } => return value.to_string(),
-      Expr::Unary { right, operator } => return self.parenthesize(&operator.lexeme, [right])
+      Expr::Unary { right, operator } => return self.parenthesize(&operator.lexeme, [right]),
+      Expr::Ternary { condition, left, right } => return self.parenthesize("ternary ", [condition, left, right]),
     }
   }
 }
