@@ -23,18 +23,20 @@ pub struct Parser {
   tokens: Vec<Token>,
   current: usize,
   exprs: Vec<Expr>,
+  errors: Vec<RakiError>
 }
 
 impl Parser {
   pub fn new(tokens: Vec<Token>) -> Parser {
-    Parser { tokens, current: 0, exprs: Vec::new() }
+    Parser { tokens, current: 0, exprs: Vec::new(), errors: Vec::new() }
   }
 
   pub fn parse(&mut self) -> Vec<Expr> {
     loop {
       match self.expression() {
         Ok(expr) => self.exprs.push(expr),
-        Err(_) => {
+        Err(err) => {
+          self.errors.push(err);
           self.synchronize();
         }
       };
@@ -147,6 +149,9 @@ impl Parser {
   fn primary(&mut self) -> Result<Expr, RakiError> {
     if matches!(self.peek().r#type, TokenType::False | TokenType::True | TokenType::Nil | TokenType::Number | TokenType::LeftParen) {
       self.advance();
+    }
+    else {
+      return Err(self.error(self.peek(), "Expected expression."));
     }
 
     match self.previous().r#type {
@@ -271,5 +276,13 @@ mod test {
     let ast_printer = AstPrinter {};
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( ternary ( > 1 2 ) 3 4 )");
+  }
+
+  #[test]
+  fn handles_invalid_binary_operator() {
+    let mut scanner = Scanner::new("> 2".to_string());
+    let mut parser = Parser::new(scanner.scan_tokens());
+    let exprs = parser.parse();
+    assert_eq!(parser.errors[0], RakiError::Syntax{line: 1, at: " at >".to_string(), message: "Expected expression.".to_string()});
   }
 }
