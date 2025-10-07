@@ -8,10 +8,10 @@ impl Visitor<String> for AstPrinter {
   fn visit_expr(&self, e: &Expr) -> String {
     match e {
       Expr::Binary { left, right, operator } => return self.parenthesize(&operator.lexeme, [left, right]),
-      Expr::Grouping { expr } => return self.parenthesize("group ", [expr]),
+      Expr::Grouping { expr } => return self.parenthesize("group", [expr]),
       Expr::Literal { value } => return value.to_string(),
       Expr::Unary { right, operator } => return self.parenthesize(&operator.lexeme, [right]),
-      Expr::Ternary { condition, left, right } => return self.parenthesize("ternary ", [condition, left, right]),
+      Expr::Ternary { condition, left, right } => return self.parenthesize("ternary", [condition, left, right]),
     }
   }
 }
@@ -23,7 +23,7 @@ impl AstPrinter {
   {
     let mut res = format!("( {} ", name);
     for expr in exprs.into_iter() {
-      let e= self.visit_expr(expr) + " ";
+      let e = self.visit_expr(expr) + " ";
       res.push_str(&e);
     }
 
@@ -50,6 +50,6 @@ use super::*;
     };
 
     let printer = AstPrinter{};
-    assert_eq!(printer.visit_expr(&expression), "( * ( - 123 ) ( group  45.67 ) )".to_string());
+    assert_eq!(printer.visit_expr(&expression), "( * ( - 123 ) ( group 45.67 ) )".to_string());
   }
 }

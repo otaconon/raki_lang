@@ -263,7 +263,7 @@ mod test {
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( + 82 102 )");
   }
 
-  /*
+  
   #[test]
   fn handles_ternary_operator() {
     let mut scanner = Scanner::new("1 > 2 ? 3 : 4".to_string());
@@ -272,5 +272,4 @@ mod test {
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( ternary ( > 1 2 ) 3 4 )");
   }
-  */
 }
