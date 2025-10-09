@@ -23,21 +23,16 @@ impl Interpreter {
     let left: Object = self.visit_expr(left)?;
     let right: Object = self.visit_expr(right)?;
 
-    let (left, right) = match (left, right) {
-      (Object::Double(l), Object::Double(r)) => (l, r),
-      _ => return Err(RakiError::Runtime {}),
-    };
-
     match operator.r#type {
-      TokenType::Plus => return Ok(Object::Double(left + right)), // TODO: overload '+' operator for strings
-      TokenType::Minus => return Ok(Object::Double(left - right)),
-      TokenType::Star => return Ok(Object::Double(left * right)),
-      TokenType::Slash => return Ok(Object::Double(left / right)),
+      TokenType::Plus => return left + right,
+      TokenType::Minus => return left - right,
+      TokenType::Star => return left * right,
+      TokenType::Slash => return left / right,
       TokenType::Greater => return Ok(Object::Boolean(left > right)),
       TokenType::GreaterEqual => return Ok(Object::Boolean(left >= right)),
       TokenType::Less => return Ok(Object::Boolean(left < right)),
       TokenType::LessEqual => return Ok(Object::Boolean(left <= right)),
-      TokenType::BangEqual => return Ok(Object::Boolean(left != right)), // TODO: abstract != and == handling to a fucntion that handles other values than Double
+      TokenType::BangEqual => return Ok(Object::Boolean(left != right)),
       TokenType::EqualEqual => return Ok(Object::Boolean(left == right)),
       _ => return Ok(Object::None),
     }
@@ -69,7 +64,14 @@ impl Interpreter {
   }
 
   fn visit_ternary_expr(&self, condition: &Expr, left: &Expr, right: &Expr) -> Result<Object, RakiError> {
-    
+    if let Object::Boolean(obj) = self.visit_expr(condition)? {
+      match obj {
+        true => return self.visit_expr(left),
+        false => return self.visit_expr(right)
+      }
+    }
+
+    return Err(RakiError::Runtime {  });
   }
 }
 
@@ -80,7 +82,7 @@ impl Visitor<Result<Object, RakiError>> for Interpreter {
       Expr::Grouping { expr } => return self.visit_expr(&expr),
       Expr::Literal { value } => return self.visit_literal_expr(value),
       Expr::Unary { right, operator } => return self.visit_unary_expr(right, operator),
-      Expr::Ternary { condition, left, right } => return Ok(Object::None),
+      Expr::Ternary { condition, left, right } => return self.visit_ternary_expr(condition, left, right),
     }
   }
 }
