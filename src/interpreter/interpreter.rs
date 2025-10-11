@@ -2,7 +2,7 @@ use crate::lexer::TokenType;
 use crate::raki_log::{RakiError, raki_log};
 use crate::{
   lexer::{LiteralType, Token},
-  parser::{AstPrinter, Expr, Visitor},
+  parser::{Expr, Visitor},
 };
 
 use super::Object;
@@ -41,7 +41,7 @@ impl Interpreter {
   fn visit_literal_expr(&self, lit: &LiteralType) -> Result<Object, RakiError> {
     match lit {
       LiteralType::String(s) => return Ok(Object::String(s.clone())),
-      LiteralType::I64(val) | LiteralType::F64(val) => return Ok(Object::Double(*val)),
+      LiteralType::F64(val) => return Ok(Object::Double(*val)),
       LiteralType::Bool(val) => return Ok(Object::Boolean(*val)),
       LiteralType::None => return Ok(Object::None),
     }
@@ -52,12 +52,12 @@ impl Interpreter {
     match operator.r#type {
       TokenType::Minus => match right {
         Object::Double(val) => return Ok(Object::Double(-val)),
-        _ => return Err(RakiError::Runtime {}),
+        _ => return Err(self.error()),
       },
       TokenType::Bang => match right {
         Object::Boolean(val) => return Ok(Object::Boolean(!val)),
         Object::None => return Ok(Object::Boolean(false)),
-        _ => return Err(RakiError::Runtime {}),
+        _ => return Err(self.error()),
       },
       _ => return Ok(Object::None),
     }
@@ -71,7 +71,7 @@ impl Interpreter {
       }
     }
 
-    return Err(RakiError::Runtime {  });
+    return Err(self.error());
   }
 }
 

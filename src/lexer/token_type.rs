@@ -1,5 +1,3 @@
-use super::utils;
-
 stringify_enum!(TokenType {
   // Single character tokens
   LeftParen, RightParen, LeftBrace, RightBrace,

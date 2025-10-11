@@ -1,10 +1,10 @@
+use crate::raki_log::RakiError;
+
 use super::{Token, TokenType, LiteralType};
-use crate::{lexer::token_type, raki_log::raki_log, lexer::utils::*};
 
 pub struct Scanner {
   source: String,
   tokens: Vec<Token>,
-  errors: Vec<String>,
   start: usize,
   current: usize,
   line: u32,
@@ -16,19 +16,18 @@ impl Scanner {
     Scanner {
       source: source,
       tokens: Vec::new(),
-      errors: Vec::new(),
       start: 0,
       current: 0,
       line: 1,
     }
   }
 
-  pub fn scan_tokens(&mut self) -> Vec<Token> {
+  pub fn scan_tokens(&mut self) -> Result<Vec<Token>, RakiError> {
     self.tokens = Vec::new();
 
     while !self.is_eof() {
       self.start = self.current;
-      self.scan_token();
+      self.scan_token()?;
     }
 
     self.tokens.push(Token {
@@ -37,45 +36,45 @@ impl Scanner {
       literal: LiteralType::String(String::new()),
       line: self.line,
     });
-    self.tokens.clone()
+
+    Ok(self.tokens.clone())
   }
 
-  fn scan_token(&mut self) {
+  fn scan_token(&mut self) -> Result<(), RakiError> {
     let c = self.advance();
 
     // Scan one char
     let token_type = match TokenType::from_char(c) {
       Some(tty) => tty,
       None => {
-        self.errors.push(format!("Error: unexpected token: {}, at line: {}", c, self.line).to_string());
-        return;
+        return Err(RakiError::Scanner(format!("Unsexpected token type {} on line {}", c, self.line)));
       }
     };
 
     // Single char is enough to tell if its a string, number or beginning of an identifier
     match token_type {
       TokenType::String => {
-        self.eat_string();
-        self.add_token(TokenType::String);
-        return;
+        self.eat_string()?;
+        self.add_token(TokenType::String)?;
+        return Ok(());
       }
       TokenType::Number => {
         self.eat_number();
-        self.add_token(TokenType::Number);
-        return;
+        self.add_token(TokenType::Number)?;
+        return Ok(());
       }
       TokenType::Identifier => {
         self.eat_identifier();
-        self.add_token(TokenType::Identifier);
-        return;
+        self.add_token(TokenType::Identifier)?;
+        return Ok(());
       }
-      TokenType::Ignore => return,
+      TokenType::Ignore => return Ok(()),
       _ => {}
     }
 
     if self.is_eof() {
-      self.add_token(token_type);
-      return;
+      self.add_token(token_type)?;
+      return Ok(());
     }
 
     // Try scanning second char and try to extend the first one with it
@@ -86,8 +85,8 @@ impl Scanner {
         etty
       }
       None => {
-        self.add_token(token_type);
-        return;
+        self.add_token(token_type)?;
+        return Ok(());
       }
     };
     
@@ -95,19 +94,20 @@ impl Scanner {
     match extended_token_type {
       TokenType::DoubleSlash => {
         self.eat_comment();
-        return;
+        return Ok(());
       }
       _ => {}
     }
 
-    self.add_token(extended_token_type);
+    self.add_token(extended_token_type)?;
+    return Ok(())
   }
 
   fn is_eof(&self) -> bool {
     self.current >= self.source.len()
   }
 
-  fn add_token(&mut self, r#type: TokenType) {
+  fn add_token(&mut self, r#type: TokenType) -> Result<(), RakiError> {
     let lexeme = &self.source[self.start..self.current];
 
     let r#type = match r#type.get_identifier(lexeme) {
@@ -116,16 +116,19 @@ impl Scanner {
     };
 
     let literal = match r#type {
-      TokenType::String => &self.source[self.start + 1..self.current - 1],
-      _ => lexeme,
+      TokenType::String => LiteralType::String(self.source[self.start + 1..self.current - 1].to_string()),
+      TokenType::Number => LiteralType::F64(lexeme.parse::<f64>().map_err(|e| RakiError::Scanner(e.to_string()))?),
+      _ => LiteralType::String(lexeme.to_string()),
     };
 
     self.tokens.push(Token {
       r#type,
       lexeme: String::from(lexeme),
-      literal: LiteralType::String(String::from(literal)),
+      literal: literal,
       line: self.line,
     });
+
+    Ok(())
   }
 
   fn advance(&mut self) -> char {
@@ -148,7 +151,7 @@ impl Scanner {
   }
 
   // Moves current byte pointer to the right string delimiter
-  fn eat_string(&mut self) {
+  fn eat_string(&mut self) -> Result<(), RakiError> {
     while !self.is_eof() && self.peek() != '"' {
       if self.peek() == '\n' {
         self.line += 1;
@@ -157,11 +160,11 @@ impl Scanner {
     }
 
     if self.is_eof() {
-      self.errors.push(format!("Error: uneterminated string literal at line: {}", self.line).to_string());
-      return;
+      return Err(RakiError::Scanner(format!("Unterminated string literal on line {}", self.line)));
     }
 
     self.advance();
+    return Ok(());
   }
 
   // Moves current byte pointer to the last digit of the number
@@ -186,10 +189,6 @@ impl Scanner {
       self.advance();
     }
   }
-
-  pub fn get_errors(&self) -> Vec<String> {
-    self.errors.clone()
-  }
 }
 
 #[cfg(test)]
@@ -199,7 +198,7 @@ mod test {
   #[test]
   fn scans_single_char_token_types() {
     let mut scanner = Scanner::new(String::from("()}+-"));
-    let tokens = scanner.scan_tokens();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
     assert_eq!(tokens[1].r#type, TokenType::RightParen);
@@ -212,7 +211,7 @@ mod test {
   #[test]
   fn scans_single_char_token_lexemes() {
     let mut scanner = Scanner::new(String::from("()}+-"));
-    let tokens = scanner.scan_tokens();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].lexeme, "(");
     assert_eq!(tokens[1].lexeme, ")");
@@ -225,20 +224,14 @@ mod test {
   #[test]
   fn handles_unexpected_tokens() {
     let mut scanner = Scanner::new(String::from("(@+%"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
-
-    assert_eq!(tokens[0].r#type, TokenType::LeftParen);
-    assert_eq!(tokens[1].r#type, TokenType::Plus);
-    assert_eq!(errors[0], String::from("Error: unexpected token: @, at line: 1"));
-    assert_eq!(errors[1], String::from("Error: unexpected token: %, at line: 1"));
+    let res = scanner.scan_tokens();
+    assert_eq!(res, Err(RakiError::Scanner("Unsexpected token type @ on line 1".to_string())))
   }
 
   #[test]
   fn scans_variable_length_token_types() {
     let mut scanner = Scanner::new(String::from("(==)=}!="));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
     assert_eq!(tokens[1].r#type, TokenType::EqualEqual);
@@ -247,39 +240,33 @@ mod test {
     assert_eq!(tokens[4].r#type, TokenType::RightBrace);
     assert_eq!(tokens[5].r#type, TokenType::BangEqual);
     assert_eq!(tokens[6].r#type, TokenType::Eof);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn scans_comments() {
     let mut scanner = Scanner::new(String::from("(//}{==ab"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
     assert_eq!(tokens[1].r#type, TokenType::Eof);
     assert_eq!(tokens.len(), 2);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn ignores_whitespaces() {
     let mut scanner = Scanner::new(String::from("(  != "));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
     assert_eq!(tokens[1].r#type, TokenType::BangEqual);
     assert_eq!(tokens[2].r#type, TokenType::Eof);
     assert_eq!(tokens.len(), 3);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn scans_string_tokens() {
     let mut scanner = Scanner::new(String::from("(\"abc\" !="));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
@@ -290,24 +277,12 @@ mod test {
     assert_eq!(tokens[2].r#type, TokenType::BangEqual);
     assert_eq!(tokens[3].r#type, TokenType::Eof);
     assert_eq!(tokens.len(), 4);
-    assert_eq!(errors.len(), 0);
-  }
-
-  #[test]
-  fn catches_unterminated_string_literals() {
-    let mut scanner = Scanner::new(String::from("(\"abc !="));
-    let _ = scanner.scan_tokens();
-    let errors = scanner.get_errors();
-
-    assert_eq!(errors.len(), 1);
-    assert_eq!(errors[0], format!("Error: uneterminated string literal at line: {}", 1).to_string());
   }
 
   #[test]
   fn scans_number_literals() {
     let mut scanner = Scanner::new(String::from("(123 45"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
@@ -318,14 +293,12 @@ mod test {
     assert_eq!(tokens[2].literal.to_string(), String::from("45"));
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn scans_decimal_number_literals() {
     let mut scanner = Scanner::new(String::from("(123.45"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
@@ -333,14 +306,12 @@ mod test {
     assert_eq!(tokens[1].literal.to_string(), String::from("123.45"));
 
     assert_eq!(tokens[2].r#type, TokenType::Eof);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn ignores_bad_decimals() {
     let mut scanner = Scanner::new(String::from("(123. .45"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::LeftParen);
 
@@ -354,14 +325,12 @@ mod test {
     assert_eq!(tokens[4].literal.to_string(), String::from("45"));
 
     assert_eq!(tokens[5].r#type, TokenType::Eof);
-    assert_eq!(errors.len(), 0);
   }
 
   #[test]
   fn scans_identifier_literals() {
     let mut scanner = Scanner::new(String::from("and or for"));
-    let tokens = scanner.scan_tokens();
-    let errors = scanner.get_errors();
+    let tokens = scanner.scan_tokens().unwrap();
 
     assert_eq!(tokens[0].r#type, TokenType::And);
     assert_eq!(tokens[0].literal.to_string(), "and");
@@ -373,6 +342,5 @@ mod test {
     assert_eq!(tokens[2].literal.to_string(), "for");
 
     assert_eq!(tokens[3].r#type, TokenType::Eof);
-    assert_eq!(errors.len(), 0);
   }
 }

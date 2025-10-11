@@ -35,8 +35,7 @@ impl Parser {
     loop {
       match self.expression() {
         Ok(expr) => self.exprs.push(expr),
-        Err(err) => {
-          self.errors.push(err);
+        Err(_) => {
           self.synchronize();
         }
       };
@@ -151,7 +150,7 @@ impl Parser {
       self.advance();
     }
     else {
-      return Err(self.error(self.peek(), "Expected expression."));
+      return Err(self.error(self.peek().clone(), "Expected expression."));
     }
 
     match self.previous().r#type {
@@ -166,7 +165,7 @@ impl Parser {
           Err(err) => return Err(err)
         }
       }
-      _ => return Err(self.error(self.peek(), "Expected expression."))
+      _ => return Err(self.error(self.peek().clone(), "Expected expression."))
     }
   }
 
@@ -206,10 +205,10 @@ impl Parser {
       return Ok(self.advance());
     }
 
-    Err(self.error(self.peek(), msg))
+    Err(self.error(self.peek().clone(), msg))
   }
 
-  fn error(&self, token: &Token, msg: &str) -> RakiError {
+  fn error(&mut self, token: Token, msg: &str) -> RakiError {
     let err: RakiError;
     match token.r#type {
       TokenType::Eof => {
@@ -229,6 +228,7 @@ impl Parser {
     }
 
     raki_log(&err);
+    self.errors.push(err.clone());
     err
   }
 }
@@ -238,13 +238,14 @@ mod test {
   use super::*;
   use crate::{
     lexer::Scanner,
-    parser::{AstPrinter, Visitor},
+    parser::ast_printer::AstPrinter,
+    parser::Visitor,
   };
 
   #[test]
   fn handles_equality_operator() {
     let mut scanner = Scanner::new("1 == 10".to_string());
-    let mut parser = Parser::new(scanner.scan_tokens());
+    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
     let ast_printer = AstPrinter {};
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( == 1 10 )");
@@ -253,7 +254,7 @@ mod test {
   #[test]
   fn handles_comparison_operator() {
     let mut scanner = Scanner::new("1 > 10".to_string());
-    let mut parser = Parser::new(scanner.scan_tokens());
+    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
     let ast_printer = AstPrinter {};
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( > 1 10 )");
@@ -262,7 +263,7 @@ mod test {
   #[test]
   fn handles_comma_operator() {
     let mut scanner = Scanner::new("123 - 45, 48 + 25, 82 + 102".to_string());
-    let mut parser = Parser::new(scanner.scan_tokens());
+    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
     let ast_printer = AstPrinter {};
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( + 82 102 )");
@@ -272,7 +273,7 @@ mod test {
   #[test]
   fn handles_ternary_operator() {
     let mut scanner = Scanner::new("1 > 2 ? 3 : 4".to_string());
-    let mut parser = Parser::new(scanner.scan_tokens());
+    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
     let ast_printer = AstPrinter {};
     let exprs = parser.parse();
     assert_eq!(ast_printer.visit_expr(&exprs[0]), "( ternary ( > 1 2 ) 3 4 )");
@@ -281,8 +282,8 @@ mod test {
   #[test]
   fn handles_invalid_binary_operator() {
     let mut scanner = Scanner::new("> 2".to_string());
-    let mut parser = Parser::new(scanner.scan_tokens());
-    let exprs = parser.parse();
+    let mut parser = Parser::new(scanner.scan_tokens().unwrap());
+    parser.parse();
     assert_eq!(parser.errors[0], RakiError::Syntax{line: 1, at: " at >".to_string(), message: "Expected expression.".to_string()});
   }
 }

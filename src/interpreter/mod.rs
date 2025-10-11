@@ -1,5 +1,5 @@
-mod object;
-mod interpreter;
+pub mod object;
+pub mod interpreter;
 
 use object::*;
-use interpreter::*;
+pub use interpreter::*;

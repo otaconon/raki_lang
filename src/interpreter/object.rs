@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
-use std::ops::{Add, Sub, Mul, Div};
+use std::fmt;
+use std::ops::{Add, Div, Mul, Sub};
 
 use crate::raki_log::RakiError;
 
@@ -18,7 +19,7 @@ impl Add for Object {
     match (self, rhs) {
       (Object::Double(a), Object::Double(b)) => Ok(Object::Double(a + b)),
       (Object::String(a), Object::String(b)) => Ok(Object::String(a + &b)),
-      _ => Err(RakiError::Runtime {  })
+      _ => Err(RakiError::Runtime {}),
     }
   }
 }
@@ -29,7 +30,7 @@ impl Sub for Object {
   fn sub(self, rhs: Self) -> Self::Output {
     match (self, rhs) {
       (Object::Double(a), Object::Double(b)) => Ok(Object::Double(a - b)),
-      _ => Err(RakiError::Runtime {  })
+      _ => Err(RakiError::Runtime {}),
     }
   }
 }
@@ -40,7 +41,7 @@ impl Mul for Object {
   fn mul(self, rhs: Self) -> Self::Output {
     match (self, rhs) {
       (Object::Double(a), Object::Double(b)) => Ok(Object::Double(a * b)),
-      _ => Err(RakiError::Runtime {  })
+      _ => Err(RakiError::Runtime {}),
     }
   }
 }
@@ -51,7 +52,7 @@ impl Div for Object {
   fn div(self, rhs: Self) -> Self::Output {
     match (self, rhs) {
       (Object::Double(a), Object::Double(b)) => Ok(Object::Double(a / b)),
-      _ => Err(RakiError::Runtime {  })
+      _ => Err(RakiError::Runtime {}),
     }
   }
 }
@@ -75,7 +76,18 @@ impl PartialOrd for Object {
       (Object::String(a), Object::String(b)) => Some(a.cmp(b)),
       (Object::Boolean(a), Object::Boolean(b)) => Some(a.cmp(b)),
       (Object::None, Object::None) => Some(Ordering::Equal),
-      _ => None
+      _ => None,
+    }
+  }
+}
+
+impl fmt::Display for Object {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    match self {
+      Object::Double(d) => write!(f, "{}", d),
+      Object::String(s) => write!(f, "{}", s),
+      Object::Boolean(b) => write!(f, "{}", b),
+      Object::None => write!(f, "None"),
     }
   }
 }

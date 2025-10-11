@@ -1,7 +1,7 @@
 use super::Expr;
 use super::Visitor;
-use crate::Token;
 
+#[allow(unused)]
 pub struct AstPrinter;
 
 impl Visitor<String> for AstPrinter {
@@ -17,6 +17,7 @@ impl Visitor<String> for AstPrinter {
 }
 
 impl AstPrinter {
+  #[allow(unused)]
   fn parenthesize<'a, I>(&self, name: &str, exprs: I) -> String
   where
     I: IntoIterator<Item = &'a Box<Expr>>,
@@ -35,14 +36,14 @@ impl AstPrinter {
 #[cfg(test)]
 mod test {
   use crate::lexer::{LiteralType, TokenType};
-
-use super::*;
+  use crate::Token;
+  use super::*;
 
   #[test]
   fn printer_prints() {
     let expression = Expr::Binary { 
       left: Box::new(Expr::Unary { 
-        right: Box::new(Expr::Literal { value: LiteralType::I64(123.0) }),
+        right: Box::new(Expr::Literal { value: LiteralType::F64(123.0) }),
         operator: Token { r#type: TokenType::Minus, lexeme: "-".to_string(), literal: LiteralType::String(String::new()), line: 0 }
       }),
       right: Box::new(Expr::Grouping { expr: Box::new(Expr::Literal { value: LiteralType::F64(45.67) }) }), 
